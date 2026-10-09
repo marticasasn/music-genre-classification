@@ -38,7 +38,7 @@ class CNNClassifier(nn.Module):
         self.pool = nn.AdaptiveAvgPool2d((4, 4))
 
         # Two-stage FC head with Dropout for regularisation.
-        # Dropout(0.5) after flatten is aggressive — reduces co-adaptation of features.
+        # Dropout(0.5) after flatten is aggressive - reduces co-adaptation of features.
         # Dropout(0.3) before the final layer provides lighter regularisation.
         self.classifier = nn.Sequential(
             nn.Flatten(),

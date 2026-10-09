@@ -240,7 +240,7 @@ def evaluate_model(
     plot_confusion_matrix(
         y_true, y_pred, class_names,
         save_path=cm_save,
-        title=f"{model_name} — Confusion Matrix",
+        title=f"{model_name} - Confusion Matrix",
     )
 
     # Only plot training curves if history was stored in the checkpoint
@@ -249,7 +249,7 @@ def evaluate_model(
         plot_training_curves(
             history,
             save_path=curve_save,
-            title=f"{model_name} — Training Curves",
+            title=f"{model_name} - Training Curves",
         )
 
     return metrics

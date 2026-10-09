@@ -1,179 +1,104 @@
-# Music Genre Classification — ELEC3612 Assignment 2
+# Music Genre Classification
 
-**Deep Learning for Audio Understanding**  
-University of Sydney — Pattern Recognition and Machine Intelligence  
-Group Assignment — 2026
+Group project for ELEC3612 (Pattern Recognition and Machine Intelligence) at the University of Sydney.
 
----
+Classifies 30-second music clips into 12 genres with a CNN on mel-spectrograms, a BiLSTM on MFCC sequences, and an SVM baseline, then compares all three on the same held-out test set.
 
-## Overview
+## Why
 
-This project implements a deep learning pipeline for automatic music genre classification using the [lewtun/music_genres](https://huggingface.co/datasets/lewtun/music_genres) dataset. After filtering 8 ambiguous or under-represented genres, the working dataset contains **17,632 audio clips** across **12 genres**.
+Genre is a fuzzy label: the same track can sound like rock, punk or pop depending on who you ask. This project asks a concrete question about that problem: does treating audio as an **image** (spectrogram + CNN) or as a **time series** (MFCC frames + recurrent network) work better, and does either beat a classical baseline?
 
-We develop and compare two deep learning architectures against a classical ML baseline:
+## Results
 
-- **CNN 2D** — trained on mel-spectrograms (audio treated as an image)
-- **BiLSTM** — trained on MFCC sequences (audio treated as a time series)
-- **SVM baseline** — RBF kernel on pooled MFCC features (mean + std per frame)
+Test set: 2,645 clips, 12 classes, stratified split.
 
----
+| Model | Input | Accuracy | Weighted F1 | Macro F1 |
+|---|---|---|---|---|
+| **CNN 2D** | Mel-spectrogram (1 x 128 x 128) | **0.506** | **0.507** | **0.487** |
+| SVM (RBF) | Pooled MFCC stats (80-dim) | 0.481 | 0.475 | 0.437 |
+| BiLSTM | MFCC sequence (130 x 40) | 0.404 | 0.400 | 0.351 |
 
-## Dataset
+Uniform random guessing scores about 0.08. The CNN wins on every aggregate metric. Classical and Hip-Hop are among the easiest genres for all three models, while Jazz and Pop are consistently among the hardest. Full metrics live in [`results/final_results.json`](results/final_results.json).
 
-### Raw dataset
+![Per-class F1 comparison](results/figures/per_class_f1_comparison.png)
 
-| Property | Value |
-|---|---|
-| Source | HuggingFace — `lewtun/music_genres` |
-| Total samples (raw) | 24,985 |
-| Clip duration | 30 seconds |
-| Sampling rate | 22,050 Hz |
-| Total size | ~10 GB |
+<!-- TODO: add a demo GIF or extra screenshots here (e.g. confusion matrices side by side) -->
+<!-- ![Demo](docs/demo.gif) -->
 
-### After filtering (12 genres)
+## How it works
 
-8 genres removed: Unknown, Easy Listening, Blues, Soul-RnB, Spoken, Old-Time / Historic, Ambient Electronic, International.
+1. **Data.** [`lewtun/music_genres`](https://huggingface.co/datasets/lewtun/music_genres) on HuggingFace: 24,985 clips, 30 s each, 22,050 Hz. Eight ambiguous or under-represented genres are dropped, leaving 17,632 clips across 12 genres: Chiptune / Glitch, Classical, Country, Electronic, Experimental, Folk, Hip-Hop, Instrumental, Jazz, Pop, Punk, Rock.
+2. **Split.** Stratified 70 / 15 / 15 (12,342 train, 2,645 val, 2,645 test). Normalisation statistics come from the train split only.
+3. **Features.** Log-scaled mel-spectrograms resized to 128 x 128, and 40-coefficient MFCCs over 130 frames.
+4. **Models.**
+   - **CNN 2D:** 4 x [Conv2d, BatchNorm, ReLU, MaxPool], adaptive average pooling, then a 512-unit dense head with dropout.
+   - **BiLSTM:** 2 layers, 256 hidden units per direction; the final forward and backward states are concatenated and passed to a dense head.
+   - **SVM:** RBF kernel (C=10, balanced class weights) on per-coefficient MFCC mean and standard deviation, standardised.
+5. **Training.** Adam, class-weighted cross-entropy to handle imbalance, gradient clipping, `ReduceLROnPlateau`, and early stopping on validation accuracy.
+6. **Evaluation.** Accuracy, weighted and macro F1, per-class F1, row-normalised confusion matrices and macro-averaged one-vs-rest ROC curves.
 
-| Split | Samples |
-|---|---|
-| Train | 12,342 |
-| Validation | 2,645 |
-| Test | 2,645 |
-| **Total** | **17,632** |
+## Stack
 
-**Genres:** Chiptune / Glitch, Classical, Country, Electronic, Experimental, Folk, Hip-Hop, Instrumental, Jazz, Pop, Punk, Rock.
+Python 3.10+, PyTorch, librosa, scikit-learn, HuggingFace `datasets`, NumPy, pandas, matplotlib, seaborn. Training runs on Kaggle GPUs.
 
----
+## Getting started
 
-## Preprocessed Dataset (Kaggle)
+### Option A: Kaggle (recommended)
 
-To avoid re-running the full 10 GB preprocessing pipeline, we publish pre-extracted tensors on Kaggle:
+The training notebooks are written for Kaggle and clone this repo at runtime to import `src/`.
 
-**Kaggle Dataset:** [[Kaggle preprocessed dataset link]](https://www.kaggle.com/datasets/marticasas/pr-a2-preprocesseddataset)
+1. Upload a notebook from `notebooks/` to Kaggle and enable a GPU.
+2. Click **Add Data** and attach the preprocessed tensors: [pr-a2-preprocesseddataset](https://www.kaggle.com/datasets/marticasas/pr-a2-preprocesseddataset) (about 1.45 GB). It mounts at `/kaggle/input/pr-a2-preprocesseddataset/`.
+3. Run the notebooks in order:
 
-| File | Shape | Description |
+| Step | Notebook | What it does |
 |---|---|---|
-| `spectrograms_{train,val,test}.pt` | (N, 1, 128, 128) | Normalised mel-spectrograms |
-| `mfccs_{train,val,test}.pt` | (N, 130, 40) | Normalised MFCC sequences |
-| `labels_{train,val,test}.pt` | (N,) | Integer class labels |
-| `genre_mapping.json` | — | 12 genres, 0-indexed |
-| `spectrogram_stats.json` | — | Mean/std computed on train split only |
-| `mfcc_stats.json` | — | Mean/std computed on train split only |
+| 1 | `01_eda_kaggle.ipynb` | Exploratory analysis and genre filtering |
+| 2 | `02_preprocessing_kaggle.ipynb` | Extracts spectrograms and MFCCs, exports tensors (skip if you use the Kaggle dataset) |
+| 3 | `03_cnn_kaggle.ipynb` | Trains the CNN, saves `best_cnn.pth` and `cnn_predictions.csv` |
+| 4 | `04_lstm_kaggle.ipynb` | Trains the BiLSTM, saves `best_lstm.pth` and `lstm_predictions.csv` |
+| 5 | `05_evaluation_kaggle.ipynb` | Trains the SVM and compares all three models |
 
-**Total size:** ~1.45 GB
+Notebook 05 reads the outputs of steps 3 and 4. Save each run's output as a Kaggle dataset named `cnn-results` and `lstm-results` and attach both before running it.
 
----
-
-## Project Structure
-
-```
-ELEC3612-Assignment2/
-│
-├── notebooks/
-│   ├── 01_eda_kaggle.ipynb          # Exploratory data analysis and genre filtering
-│   ├── 02_preprocessing_kaggle.ipynb  # Feature extraction and tensor export
-│   ├── 03_cnn_kaggle.ipynb          # CNN 2D training on mel-spectrograms
-│   ├── 04_lstm_kaggle.ipynb         # BiLSTM training on MFCC sequences
-│   └── 05_evaluation_kaggle.ipynb   # Comparative evaluation: CNN vs BiLSTM vs SVM
-│
-├── src/
-│   ├── dataset.py     # SpectrogramDataset and MFCCDataset (PyTorch Dataset classes)
-│   ├── models.py      # CNNClassifier and LSTMClassifier architectures
-│   ├── train.py       # Training loop with early stopping and checkpointing
-│   └── evaluate.py    # Metrics, confusion matrix, and training curve plots
-│
-├── results/
-│   └── figures/       # EDA plots and confusion matrices
-│
-├── report/            # Final technical report
-├── docs/              # Project roadmap
-└── requirements.txt
-```
-
----
-
-## Pipelines
-
-### Pipeline A — Mel-Spectrogram + CNN 2D
-
-Each 30-second clip is converted to a log-scaled mel-spectrogram, resized to 128×128, and classified with a 4-block Conv2D network.
-
-- **Input shape:** (N, 1, 128, 128)
-- **Architecture:** 4× [Conv2d → BatchNorm → ReLU → MaxPool] → AdaptiveAvgPool → Dropout → Linear(512) → Linear(12)
-- **Strength:** captures local spectral texture, timbre, and rhythm
-
-### Pipeline B — MFCCs + BiLSTM
-
-Each clip is represented as a sequence of 130 MFCC frames and fed into a 2-layer bidirectional LSTM.
-
-- **Input shape:** (N, 130, 40)
-- **Architecture:** BiLSTM(hidden=256, layers=2) → concat final hidden states → Dropout → Linear(256) → Linear(12)
-- **Strength:** captures how musical structure evolves over time
-
-### Baseline — SVM on pooled MFCCs
-
-Per-frame MFCC mean and std are concatenated to produce an 80-dimensional feature vector, scaled with StandardScaler, and classified with an RBF-kernel SVM.
-
----
-
-## Notebook Execution Order
-
-All notebooks are designed to run on **Kaggle** (free GPU, 30h/week). Run them in this order:
-
-| Step | Notebook | Description |
-|---|---|---|
-| 1 | `01_eda_kaggle.ipynb` | EDA, genre filtering, visualisations |
-| 2 | `02_preprocessing_kaggle.ipynb` | Extract spectrograms and MFCCs, export tensors |
-| 3 | `03_cnn_kaggle.ipynb` | Train CNN, save checkpoint and predictions |
-| 4 | `04_lstm_kaggle.ipynb` | Train BiLSTM, save checkpoint and predictions |
-| 5 | `05_evaluation_kaggle.ipynb` | Compare all models, generate final figures |
-
-### How to add the preprocessed dataset on Kaggle
-
-1. Open any of notebooks 03–05 on Kaggle.
-2. Click **+ Add Data** → search for `pr-a2-preprocesseddataset` by `marticasas`.
-3. The data will be available at `/kaggle/input/pr-a2-preprocesseddataset/`.
-
-For notebook 05, also add CNN and LSTM results as separate datasets:
-- `cnn-results` — [TODO: CNN results dataset link] — containing `best_cnn.pth` and `cnn_predictions.csv`
-- `lstm-results` — [TODO: LSTM results dataset link] — containing `best_lstm.pth` and `lstm_predictions.csv`
-
----
-
-## src/ Modules
-
-| Module | Description |
-|---|---|
-| `dataset.py` | `SpectrogramDataset` and `MFCCDataset` — load `.pt` tensors, validate shapes, compute class weights |
-| `models.py` | `CNNClassifier` and `LSTMClassifier` — architecture definitions, parameter count |
-| `train.py` | `train()` loop with gradient clipping, early stopping, LR scheduling, and checkpointing |
-| `evaluate.py` | `compute_metrics()`, `plot_confusion_matrix()`, `plot_training_curves()`, `evaluate_model()` |
-
----
-
-## Setup (local)
+### Option B: local
 
 ```bash
+git clone https://github.com/marticasasn/music-genre-classification.git
+cd music-genre-classification
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+# Optional: download the raw dataset (~10 GB) into music_genres_local/
+python download_dataset.py
 ```
 
-> Training is intended to run on Kaggle. Local setup is only needed for development or EDA.
+Then open the notebooks with `jupyter notebook`. The `/kaggle/...` paths at the top of each notebook need to point to your local copies.
 
----
+## Project structure
 
-## Evaluation Metrics
-
-- Accuracy
-- Weighted F1-score
-- Macro F1-score
-- Per-class F1-score
-- Confusion matrix (row-normalised)
-- Training loss and accuracy curves
-
----
-
-## Course
-
-**ELEC3612 — Pattern Recognition and Machine Intelligence**  
-School of Electrical and Information Engineering  
-University of Sydney, 2026
+```
+.
+├── notebooks/
+│   ├── 01_eda_kaggle.ipynb            # EDA and genre filtering
+│   ├── 02_preprocessing_kaggle.ipynb  # Feature extraction and tensor export
+│   ├── 03_cnn_kaggle.ipynb            # CNN training
+│   ├── 04_lstm_kaggle.ipynb           # BiLSTM training
+│   └── 05_evaluation_kaggle.ipynb     # SVM baseline and model comparison
+├── src/
+│   ├── dataset.py     # SpectrogramDataset, MFCCDataset, class weights
+│   ├── models.py      # CNNClassifier, LSTMClassifier
+│   ├── train.py       # Training loop, early stopping, checkpointing
+│   └── evaluate.py    # Metrics, confusion matrices, training curves, ROC
+├── results/
+│   ├── figures/       # EDA plots, confusion matrices, curves
+│   ├── *_metrics.json, final_results.json, comparative_results.csv
+│   └── *_predictions.csv
+├── docs/
+│   └── assignment2_roadmap.html       # Project plan
+├── Report.pdf                         # Final technical report
+├── main_v5_current.tex                # LaTeX source of the report
+├── download_dataset.py                # Fetches the raw dataset from HuggingFace
+└── requirements.txt
+```

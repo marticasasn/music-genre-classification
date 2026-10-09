@@ -1,12 +1,11 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
 .Python
 
-# Virtual environments
+# Virtual environments and secrets
 .env
+.env.*
 .venv/
 venv/
 env/
@@ -14,30 +13,44 @@ env/
 # Jupyter
 .ipynb_checkpoints/
 
-# Model checkpoints (large binary files)
-checkpoints/*.pth
-checkpoints/*.pt
+# Model weights and tensors (large binaries, hosted on Kaggle)
+checkpoints/
+*.pth
+*.pt
 
-# Kaggle credentials
+# Kaggle / HuggingFace credentials
 kaggle.json
 .kaggle/
+.huggingface/
 
-# macOS
+# Raw dataset (~10 GB, fetched with download_dataset.py)
+data/
+music_genres_local/
+*.arrow
+
+# LaTeX build artefacts
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# OS
 .DS_Store
+Thumbs.db
+desktop.ini
 
 # IDEs
 .vscode/
 .idea/
 
-# Data (large files, fetched at runtime)
-data/
-music_genres_local/
-
-# Project instructions and AI memory (local only)
+# AI assistant instructions and memory (local only)
 CLAUDE.md
+AGENTS.md
 memory/
 .claude/
 
 # Output directories
 /outputs/
-/checkpoints/

@@ -93,7 +93,7 @@ def train(
         checkpoint_path = Path(checkpoint_path)
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Counter for epochs without improvement — triggers early stopping at `patience`
+    # Counter for epochs without improvement - triggers early stopping at `patience`
     epochs_no_improve = 0
 
     for epoch in range(1, num_epochs + 1):
@@ -112,7 +112,7 @@ def train(
 
         saved = ""
         if val_acc > history["best_val_acc"]:
-            # New best validation accuracy — save the full checkpoint and reset patience.
+            # New best validation accuracy - save the full checkpoint and reset patience.
             # We track val_acc (not val_loss) as the primary criterion because the
             # weighted CrossEntropyLoss can decrease while accuracy stagnates on
             # imbalanced classes.

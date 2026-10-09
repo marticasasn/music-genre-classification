@@ -26,10 +26,10 @@ def _load_genre_mapping(path: Path) -> dict:
         raw = json.load(f)
     first_key = next(iter(raw))
     if isinstance(raw[first_key], int):
-        # Format: {"Rock": 0, "Pop": 1, ...} — invert so keys are integers
+        # Format: {"Rock": 0, "Pop": 1, ...} - invert so keys are integers
         return {v: k for k, v in raw.items()}
     else:
-        # Format: {"0": "Rock", "1": "Pop", ...} — cast string keys to int
+        # Format: {"0": "Rock", "1": "Pop", ...} - cast string keys to int
         return {int(k): v for k, v in raw.items()}
 
 
@@ -173,4 +173,4 @@ if __name__ == "__main__":
             print(f"genres:      {ds.genres}")
             print(f"class_weights shape: {tuple(ds.get_class_weights().shape)}")
         except FileNotFoundError as e:
-            print(f"Skipped — {e}")
+            print(f"Skipped - {e}")
